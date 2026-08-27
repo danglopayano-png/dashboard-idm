@@ -748,7 +748,7 @@ footer{margin-top:40px;text-align:center;font-size:11.5px;color:var(--text-muted
       <li><b>Recalibración del costo (ago. 2026, validado contra Estado de Resultados Ene-Jul):</b> el costo de personal se calcula solo con <code>Monto</code> (sueldo) + <code>Bono</code> del Mapa de Recursos, prorrateado por <code>Días Pagados ÷ Días Costo</code> — no se usan Horas Extras, Asignación Familiar, Laptop, Office ni EPS a nivel de fila. El driver de estructura absorbe el resto: se define como 1 + (suma de 15 conceptos puntuales del Estado de Resultados ÷ (Sueldos Brutos + RXH + Bono Movilidad)) de cada mes. Esos 15 conceptos son, dentro de "Costos": Alquiler Laptops, Licencias, Exámenes Ocupacionales y EPS; y dentro de "Gastos de Estructura": Alquiler Laptops, Licencias, Sueldos Staff, RXH Staff, Sueldos Semada, RXH Semada, Alquiler Oficina, EPS, Gastos Generales, Comisiones y Depreciación — tomados directamente del detalle línea por línea, no de los subtotales de esas dos secciones (se detectó que, en el archivo, el subtotal de "Gastos de Estructura" no coincidía con la suma de su propio detalle para enero–mayo 2026; ya corregido en la fuente). Esta recalibración se validó mes a mes contra la rentabilidad real del Estado de Resultados (vista Contable): la mayoría de los meses quedó dentro de ±2.3 puntos porcentuales (febrero prácticamente exacto), con mayo como la mayor excepción (-7.1 puntos, pendiente de revisar aparte). Ya no hay un sesgo sistemático en una sola dirección, a diferencia de versiones anteriores de este cálculo. Además se comparó "Monto" del Mapa de Recursos (por régimen, prorrateado) contra "Sueldos Brutos"/"RXH" del Estado de Resultados mes a mes: las diferencias fueron normales (mayormente bajo 5%, sin patrón sistemático), sin evidencia de un error de carga en los sueldos.</li>
       <li><b>Drivers mensuales usados</b> (factor beneficios / factor estructura): Ene 1.361/1.298 · Feb 1.364/1.275 · Mar 1.354/1.315 · Abr 1.357/1.311 · May 1.369/1.354 · Jun 1.348/1.293 · Jul 1.363/1.299 — todos calculados del Estado de Resultados real (actualizado a julio 2026, con la corrección de Gastos de Estructura de enero-mayo). Agosto 2026 usa el driver de julio (todavía no hay cierre financiero de agosto). Los meses anteriores a enero 2026 usan el promedio Ene-Jul (1.359/1.306), al no contar con Estado de Resultados de ese periodo.</li>
       <li><b>Dotación:</b> colaboradores (DNI) distintos con producción registrada en el mes, <b>excluyendo</b> a quienes tienen estado "Cesado" u "Otros" ese mismo mes. Este es el criterio usado en el resto del tablero (gráficos, cascadas, tarjetas de cliente).</li>
-      <li><b>Dotación al día de hoy vs. proyectada:</b> "Dotación al día de hoy" es quien está realmente sentado al 14/08/2026 — excluye ingresos confirmados cuya <code>Fecha de Inicio de Servicio</code> es posterior a hoy, e incluye a quienes cesan hoy o después (su Estado y producción siguen vigentes hoy). "Dotación proyectada" es la foto de cierre de mes: suma los ingresos confirmados que inician después de hoy, y resta los ceses ya confirmados (por <code>Fecha de Cese</code>) dentro del mes aunque el campo Estado todavía figure como "Activo". Para meses cerrados ambas cifras coinciden, porque todos los movimientos de esos meses ya están reflejados en el Estado.</li>
+      <li><b>Dotación al día de hoy vs. proyectada:</b> "Dotación al día de hoy" es quien está realmente sentado al día de hoy (calculado con la fecha real del dispositivo al abrir este tablero) — excluye ingresos confirmados cuya <code>Fecha de Inicio de Servicio</code> es posterior a hoy, e incluye a quienes cesan hoy o después (su Estado y producción siguen vigentes hoy). "Dotación proyectada" es la foto de cierre de mes: suma los ingresos confirmados que inician después de hoy, y resta los ceses ya confirmados (por <code>Fecha de Cese</code>) dentro del mes aunque el campo Estado todavía figure como "Activo". Para meses cerrados ambas cifras coinciden, porque todos los movimientos de esos meses ya están reflejados en el Estado.</li>
       <li><b>Grupos de cliente:</b> "Pacífico &amp; Prima" = Pacífico + Prima AFP · "Grupo Santander" = Santander (incl. Santander Perú) · "Scotiabank" · "Middle Accounts" = el resto de cuentas.</li>
       <li><b>Ceses (para churn):</b> colaboradores cuya <code>Fecha de Cese</code> cae dentro del mes, sin importar su campo Estado (más confiable que el Estado en meses de proyección). <b>Churn:</b> Ceses del mes ÷ dotación de cierre del mes anterior.</li>
       <li><b>Rotación:</b> Reemplazos (estado "Reemplazo") registrados en el mes ÷ dotación de cierre del mes anterior. El tablero atribuye este indicador al <b>mes anterior</b> (el mes cuya vacante se está cubriendo), siguiendo el criterio: "los reemplazos de agosto son la rotación de julio".</li>
@@ -800,7 +800,8 @@ function clientGroup(cli){
   return 'Middle Accounts';
 }
 const NO_DOTACION_STATUS = new Set(['Cesado','Otros']);
-const TODAY_STR = '2026-08-14';
+const _now = new Date();
+const TODAY_STR = _now.getFullYear() + '-' + String(_now.getMonth()+1).padStart(2,'0') + '-' + String(_now.getDate()).padStart(2,'0');
 
 const ROWS = RAW.rows.map(arr=>{
   const o = {};
@@ -1565,11 +1566,12 @@ function renderKPIs(stats, p, prevP){
 
   const porIniciarN = [...cur.dotSet].filter(d=>!cur.dotSetHoy.has(d)).length;
   const cesesFuturosN = [...cur.dotSetHoy].filter(d=>!cur.dotSet.has(d)).length;
+  const hoyDDMM = TODAY_STR.slice(8,10)+'/'+TODAY_STR.slice(5,7);
   let proySub;
   if(porIniciarN>0 && cesesFuturosN>0){
-    proySub = `Incluye ${porIniciarN} ingreso(s) confirmado(s) con inicio posterior al 14/08, y resta ${cesesFuturosN} cese(s) ya confirmado(s) dentro del mes.`;
+    proySub = `Incluye ${porIniciarN} ingreso(s) confirmado(s) con inicio posterior al ${hoyDDMM}, y resta ${cesesFuturosN} cese(s) ya confirmado(s) dentro del mes.`;
   } else if(porIniciarN>0){
-    proySub = `Incluye ${porIniciarN} ingreso(s) confirmado(s) (con firma) con inicio posterior al 14/08.`;
+    proySub = `Incluye ${porIniciarN} ingreso(s) confirmado(s) (con firma) con inicio posterior al ${hoyDDMM}.`;
   } else if(cesesFuturosN>0){
     proySub = `Resta ${cesesFuturosN} cese(s) ya confirmado(s) dentro del mes (Estado aún no actualizado).`;
   } else {
@@ -2179,8 +2181,9 @@ function renderWaterfalls(stats, p, prevP){
     let note = `La dotación de cada mes ya excluye a quienes cesaron o quedaron en estado "Otros" <b>ese mismo mes</b>. Por eso "Ceses" en este puente incluye tanto a quienes desaparecen del reporte como a quienes aparecen con estado Cesado/Otros en el mes actual.` +
       (traslDotCount>0 ? ` De los ${altasDotSet.length} ingresos, ${traslDotCount} son traslados desde otro proveedor (cuentan como nuevo ingreso para IDM).` : '');
     if(porIniciarSet.length>0 || cesesFuturosSet.length>0){
-      note += ` <b>"Sentados hoy (14/08)"</b> es la dotación realmente activa al corte de hoy.`;
-      if(porIniciarSet.length>0) note += ` "Confirmados, inician después" suma los ${porIniciarSet.length} ingreso(s) ya firmados cuya fecha de inicio de servicio es posterior al 14/08.`;
+      const hoyDDMM2 = TODAY_STR.slice(8,10)+'/'+TODAY_STR.slice(5,7);
+      note += ` <b>"Sentados hoy (${hoyDDMM2})"</b> es la dotación realmente activa al corte de hoy.`;
+      if(porIniciarSet.length>0) note += ` "Confirmados, inician después" suma los ${porIniciarSet.length} ingreso(s) ya firmados cuya fecha de inicio de servicio es posterior al ${hoyDDMM2}.`;
       if(cesesFuturosSet.length>0) note += ` "Ceses confirmados, después de hoy" resta ${cesesFuturosSet.length} colaborador(es) con fecha de cese ya confirmada dentro del mes (aunque su Estado todavía figure como activo).`;
     }
     dotNoteEl.innerHTML = note;
