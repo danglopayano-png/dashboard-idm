@@ -1139,7 +1139,7 @@ function computePeriodStats(){
   const stats = {};
   PERIODS.forEach(p=>{
     const rows = byPeriod.get(p) || [];
-    const dniSet = new Set(rows.filter(r=>r.dni).map(r=>r.dni));
+    const dniSet = new Set(rows.filter(r=>r.dni && r.est!=='En Proceso').map(r=>r.dni)); // "En Proceso" (candidato en reclutamiento, sin produccion real) no cuenta como "ingreso" hasta el mes en que realmente empieza a producir
     // no cuenta en la dotación de un periodo si su Fecha de Inicio de Servicio es POSTERIOR a ese
     // mismo periodo (p.ej. "En Proceso" registrado en julio con inicio real en agosto: en julio
     // nunca prestó servicio, así que no debe sumar a la dotación de julio).
@@ -2104,7 +2104,7 @@ function renderWaterfalls(stats, p, prevP){
 
   const bizTxt = (bdPrev && bdCur) ? `${fmtPeriod(prevP)}: ${bdPrev} días hábiles · ${fmtPeriod(p)}: ${bdCur} días hábiles (perfiles por hora).` : 'No hay suficiente información de días hábiles para uno de los meses.';
   const traslTxt = traslProd>0.5 ? ` De los "Nuevos ingresos", ${fmtMoney(traslProd)} corresponden a traslados desde otro proveedor (cuentan como nuevo ingreso para IDM).` : '';
-  noteEl.innerHTML = `<b>Cómo leer las barras intermedias:</b> "Producción rezagada" (${rezagoBucket>=0?'+':''}${fmtMoney(rezagoBucket)}) son colaboradores que ingresaron en ${fmtPeriod(prevP)} sin completar el mes, y en ${fmtPeriod(p)} ya facturan el periodo completo. "Estacionalidad" (${estacionalBucket>=0?'+':''}${fmtMoney(estacionalBucket)}) aísla, para perfiles con tarifa por hora, la parte del cambio explicada solo por tener más o menos días hábiles en el mes: ${bizTxt} "Vacaciones y descansos" (${vacBucket>=0?'+':''}${fmtMoney(vacBucket)}) y "Otros ajustes" (${otherBucket>=0?'+':''}${fmtMoney(otherBucket)}) son la <b>variación neta restante</b> de quienes ya venían de antes — un valor positivo indica que produjeron más que en ${fmtPeriod(prevP)}, no un costo.${traslTxt}`;
+  noteEl.innerHTML = `<b>Cómo leer las barras intermedias:</b> "Nuevos ingresos" cuenta a alguien desde el mes en que <b>realmente empieza a generar producción</b> — mientras está "En Proceso" de reclutamiento (con producción S/. 0) no se considera ingreso todavía. "Producción rezagada" (${rezagoBucket>=0?'+':''}${fmtMoney(rezagoBucket)}) son colaboradores que ya venían generando producción parcial en ${fmtPeriod(prevP)} (ingresaron sin completar el mes) y en ${fmtPeriod(p)} ya facturan el periodo completo. "Estacionalidad" (${estacionalBucket>=0?'+':''}${fmtMoney(estacionalBucket)}) aísla, para perfiles con tarifa por hora, la parte del cambio explicada solo por tener más o menos días hábiles en el mes: ${bizTxt} "Vacaciones y descansos" (${vacBucket>=0?'+':''}${fmtMoney(vacBucket)}) y "Otros ajustes" (${otherBucket>=0?'+':''}${fmtMoney(otherBucket)}) son la <b>variación neta restante</b> de quienes ya venían de antes — un valor positivo indica que produjeron más que en ${fmtPeriod(prevP)}, no un costo.${traslTxt}`;
 
   // Dotación: usa la dotación depurada (sin Cesados/Otros, y sin ceses ya confirmados del propio mes)
   const prevDot = stats[prevP].dotSetRaw, curDot = stats[p].dotSetRaw;
