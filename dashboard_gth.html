@@ -854,7 +854,7 @@ function chartGen(){
 }
 /* Evolutivo de ingresos por mes */
 function chartIng(){
-  const c=card('Requerimientos ingresados por mes','Barras: cantidad según la fecha de inicio del requerimiento. Línea: % de terna entregada en plazo de los requerimientos de ese mes (eje derecho).');
+  const c=card('Requerimientos ingresados por mes','Barras: cantidad según la fecha de inicio del requerimiento, divididas en contratados (verde), en proceso (azul) y perdidos o cancelados (rojo). Línea: % de terna entregada en plazo de los requerimientos de ese mes (eje derecho).');
   const rows=S.view.filter((r)=>r.inicio);
   if(!rows.length){c.append(el('p','empty','No hay requerimientos con los filtros actuales.'));return c;}
   const ks=rows.map((r)=>r.inicio.slice(0,7)).sort();
@@ -871,8 +871,13 @@ function chartIng(){
   [0,25,50,75,100].forEach((p)=>svg.append(sv('text',{x:W-mg.r+6,y:YP(p)+4,class:'ax',style:'text-anchor:start'},p+'%')));
   out.forEach((k,i)=>{
     const x=mg.l+i*bw+bw*.2,w=bw*.6,h=cnt[i]/ymax*ph,yy=Y(cnt[i]);
-    const r=sv('rect',{x,y:yy,width:w,height:h,rx:3,fill:'var(--st2)'});barTip(r,MES[+k.slice(5,7)-1]+' '+k.slice(0,4),by[i],true);svg.append(r);
-    if(cnt[i]){const inside=h>=22;svg.append(sv('text',{x:x+w/2,y:inside?yy+h-7:yy-5,class:inside?'sv':'tl',style:'text-anchor:middle'},String(cnt[i])));}
+    const mes=MES[+k.slice(5,7)-1]+' '+k.slice(0,4);
+    const segs=[['Contratados','#0E9F6E',by[i].filter((r)=>r.g==='OK')],['En proceso','var(--st2)',by[i].filter((r)=>r.g!=='OK'&&r.g!=='NO')],['Perdidos / cancelados','#C00000',by[i].filter((r)=>r.g==='NO')]];
+    let acc=0;
+    segs.forEach(([nm,col,rs])=>{if(!rs.length)return;const sh=rs.length/ymax*ph,sy=Y(acc+rs.length);acc+=rs.length;
+      const r=sv('rect',{x,y:sy,width:w,height:sh,fill:col,stroke:'var(--surface)','stroke-width':1});barTip(r,mes+' · '+nm,rs,true);svg.append(r);
+      if(sh>=16)svg.append(sv('text',{x:x+w/2,y:sy+sh/2+4,class:'sv',style:'text-anchor:middle;pointer-events:none'},String(rs.length)));});
+    if(cnt[i])svg.append(sv('text',{x:x+w/2,y:yy-5,class:'tl',style:'text-anchor:middle'},String(cnt[i])));
     svg.append(sv('text',{x:x+w/2,y:H-mg.b+16,class:'ax',style:'text-anchor:middle'},MES[+k.slice(5,7)-1]+' '+k.slice(2,4)));
   });
   svg.append(sv('line',{x1:mg.l,x2:W-mg.r,y1:mg.t+ph,y2:mg.t+ph,class:'bl'}));
@@ -884,7 +889,7 @@ function chartIng(){
     svg.append(sv('text',{x,y:yy-11,class:'pl',style:'text-anchor:middle'},Math.round(d.p)+'%'));
   });
   c.append(svg);
-  const lg=el('div','lg');[['var(--st2)','Requerimientos ingresados'],['#0E6B73','Terna en plazo (% del mes)']].forEach(([col,t])=>{const s=el('span','lgi');const k=el('i');k.style.background=col;s.append(k,document.createTextNode(t));lg.append(s);});
+  const lg=el('div','lg');[['#0E9F6E','Contratados'],['var(--st2)','En proceso (GTH y áreas comerciales)'],['#C00000','Perdidos / cancelados'],['#0E6B73','Terna en plazo (% del mes)']].forEach(([col,t])=>{const s=el('span','lgi');const k=el('i');k.style.background=col;s.append(k,document.createTextNode(t));lg.append(s);});
   c.append(lg);return c;
 }
 /* Torta: en proceso vs cerrados */
